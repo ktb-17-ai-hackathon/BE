@@ -1,68 +1,117 @@
-// src/main/java/com/example/cheongyakassist/plan/service/PlanService.java
 package com.example.cheongyakassist.plan.service;
 
+import com.example.cheongyakassist.ai.client.CheongyakPlanClient;
+import com.example.cheongyakassist.ai.dto.AiCheongyakPlanResponse;
 import com.example.cheongyakassist.plan.dto.PlanCreateRequest;
 import com.example.cheongyakassist.plan.dto.PlanResponseDto;
 import com.example.cheongyakassist.plan.entity.Plan;
 import com.example.cheongyakassist.plan.repository.PlanRepository;
-import com.fasterxml.jackson.databind.JsonNode;
+import com.example.cheongyakassist.survey.entity.HousingProfile;
+import com.example.cheongyakassist.survey.repository.HousingProfileRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class PlanService {
 
     private final PlanRepository planRepository;
+    private final HousingProfileRepository housingProfileRepository;
+    private final CheongyakPlanClient cheongyakPlanClient;
     private final ObjectMapper objectMapper;
 
+    /**
+     * 프론트에서 surveyId + LLM 결과를 모두 넘겨주는 경우
+     */
     @Transactional
     public Long createPlan(PlanCreateRequest request) {
-        String llmResultJson = toJsonString(request.getLlmRawResult());
+        log.info("[PlanService] createPlan request = {}", request);
 
-        Plan plan = Plan.create(
-                request.getSurveyId(),
-                llmResultJson,
-                request.getRecommendedHorizon(),
-                request.getConfidenceLevel()
-        );
+        HousingProfile survey = housingProfileRepository.findById(request.getSurveyId())
+                .orElseThrow(() -> new IllegalArgumentException("Survey not found: " + request.getSurveyId()));
+
+        Plan plan = Plan.builder()
+                .survey(survey)
+                .recommendedHorizon(request.getRecommendedHorizon() != null
+                        ? request.getRecommendedHorizon().name()
+                        : null)
+                .confidenceLevel(request.getConfidenceLevel() != null
+                        ? request.getConfidenceLevel().name()
+                        : null)
+                .llmRawResult(convertToJsonString(request.getLlmRawResult()))
+                .createdAt(LocalDateTime.now())
+                .build();
 
         Plan saved = planRepository.save(plan);
+        log.info("[PlanService] createPlan saved id = {}", saved.getId());
         return saved.getId();
+    }
+
+    @Transactional
+    public Long createPlanFromSurvey(Long surveyId) {
+        PlanResponseDto dto = createPlanWithAi(surveyId);
+        return dto.getPlanId();
+    }
+
+    @Transactional
+    public PlanResponseDto createPlanWithAi(Long surveyId) {
+        log.info("[PlanService] createPlanWithAi surveyId = {}", surveyId);
+
+        HousingProfile survey = housingProfileRepository.findById(surveyId)
+                .orElseThrow(() -> new IllegalArgumentException("Survey not found: " + surveyId));
+
+        // FastAPI 호출
+        AiCheongyakPlanResponse aiRes = cheongyakPlanClient.requestPlan(survey);
+        log.info("[PlanService] AI response = {}", aiRes);
+
+        // Plan 엔티티 생성/저장
+        Plan plan = Plan.builder()
+                .survey(survey)
+                // ✅ planMeta에서 가져오기
+                .recommendedHorizon(aiRes.getPlanMeta() != null
+                        ? aiRes.getPlanMeta().getRecommendedHorizon()
+                        : null)
+                // ✅ diagnosis에서 가져오기
+                .confidenceLevel(aiRes.getDiagnosis() != null
+                        ? aiRes.getDiagnosis().getConfidenceLevel()
+                        : null)
+                // ✅ 전체 응답 객체를 JSON 문자열로 변환
+                .llmRawResult(convertToJsonString(aiRes))
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        Plan saved = planRepository.save(plan);
+        log.info("[PlanService] createPlanWithAi saved id = {}", saved.getId());
+
+        return PlanResponseDto.from(saved);
     }
 
     @Transactional(readOnly = true)
     public PlanResponseDto getLatestPlanBySurveyId(Long surveyId) {
-        Plan plan = planRepository.findTopBySurveyIdOrderByCreatedAtDesc(surveyId)
-                .orElseThrow(() -> new IllegalArgumentException("해당 설문에 대한 플랜이 없습니다. surveyId=" + surveyId));
+        Plan plan = planRepository.findTopBySurvey_IdOrderByCreatedAtDesc(surveyId)
+                .orElseThrow(() -> new IllegalArgumentException("Plan not found for surveyId = " + surveyId));
 
-        JsonNode llmRawResult = toJsonNode(plan.getLlmResultJson());
-
-        return PlanResponseDto.builder()
-                .planId(plan.getId())
-                .surveyId(plan.getSurveyId())
-                .llmRawResult(llmRawResult)
-                .recommendedHorizon(plan.getRecommendedHorizon())
-                .confidenceLevel(plan.getConfidenceLevel())
-                .createdAt(plan.getCreatedAt())
-                .build();
+        return PlanResponseDto.from(plan);
     }
 
-    private String toJsonString(JsonNode node) {
-        try {
-            return objectMapper.writeValueAsString(node);
-        } catch (Exception e) {
-            throw new IllegalStateException("LLM 결과 JSON 직렬화 중 오류가 발생했습니다.", e);
+    /**
+     * Object를 JSON String으로 변환
+     */
+    private String convertToJsonString(Object obj) {
+        if (obj == null) {
+            return null;
         }
-    }
-
-    private JsonNode toJsonNode(String json) {
         try {
-            return objectMapper.readTree(json);
+            return objectMapper.writeValueAsString(obj);
         } catch (Exception e) {
-            throw new IllegalStateException("LLM 결과 JSON 역직렬화 중 오류가 발생했습니다.", e);
+            log.error("Failed to convert to JSON string", e);
+            throw new RuntimeException("Failed to convert to JSON string", e);
         }
     }
 }
