@@ -34,7 +34,7 @@ public class Plan {
 
     // LLM 원본 JSON - String으로 저장
     @Lob
-    @Column(name = "llm_raw_result", columnDefinition = "CLOB")
+    @Column(name = "llm_raw_result",columnDefinition = "LONGTEXT")
     private String llmRawResult;
 
     @Column(name = "created_at", nullable = false, updatable = false)
