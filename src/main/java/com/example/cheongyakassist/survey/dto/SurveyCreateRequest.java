@@ -169,7 +169,7 @@ public class SurveyCreateRequest {
      * 가장 중요한 요소들 (복수 선택)
      * 예: ["transport", "school", "price"]
      */
-    private List<String> priorityCriteria;
+    private String priorityCriteria;
 
     /**
      * 선호하는 집 크기 (선택지 내용을 그대로 저장)

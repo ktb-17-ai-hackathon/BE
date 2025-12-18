@@ -1,10 +1,10 @@
+// src/main/java/com/example/cheongyakassist/plan/service/PlanService.java
 package com.example.cheongyakassist.plan.service;
 
 import com.example.cheongyakassist.plan.dto.PlanCreateRequest;
 import com.example.cheongyakassist.plan.dto.PlanResponseDto;
 import com.example.cheongyakassist.plan.entity.Plan;
 import com.example.cheongyakassist.plan.repository.PlanRepository;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -53,7 +53,7 @@ public class PlanService {
     private String toJsonString(JsonNode node) {
         try {
             return objectMapper.writeValueAsString(node);
-        } catch (JsonProcessingException e) {
+        } catch (Exception e) {
             throw new IllegalStateException("LLM 결과 JSON 직렬화 중 오류가 발생했습니다.", e);
         }
     }
@@ -61,7 +61,7 @@ public class PlanService {
     private JsonNode toJsonNode(String json) {
         try {
             return objectMapper.readTree(json);
-        } catch (JsonProcessingException e) {
+        } catch (Exception e) {
             throw new IllegalStateException("LLM 결과 JSON 역직렬화 중 오류가 발생했습니다.", e);
         }
     }

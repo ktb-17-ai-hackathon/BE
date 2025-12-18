@@ -1,9 +1,9 @@
+// src/main/java/com/example/cheongyakassist/plan/controller/PlanController.java
 package com.example.cheongyakassist.plan.controller;
 
 import com.example.cheongyakassist.plan.dto.PlanCreateRequest;
 import com.example.cheongyakassist.plan.dto.PlanResponseDto;
 import com.example.cheongyakassist.plan.service.PlanService;
-import jakarta.validation.Valid;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -16,44 +16,48 @@ public class PlanController {
 
     private final PlanService planService;
 
+    @GetMapping("/test")
+    public String test() {
+        return "plan-ok";
+    }
+
+
     /**
-     * LLM 결과 저장
+     * 플랜 생성
+     * POST /api/plans
      */
     @PostMapping
-    public ResponseEntity<ApiResponse<PlanCreateResponse>> createPlan(
-            @Valid @RequestBody PlanCreateRequest request
+    public ResponseEntity<ApiResponse<CreatePlanResponse>> createPlan(
+            @RequestBody PlanCreateRequest request
     ) {
         Long planId = planService.createPlan(request);
-        PlanCreateResponse body = new PlanCreateResponse(planId, request.getSurveyId());
-        return ResponseEntity.ok(ApiResponse.success("AI 설계 결과가 저장되었습니다.", body));
+        return ResponseEntity.ok(
+                ApiResponse.success("플랜이 생성되었습니다.", new CreatePlanResponse(planId))
+        );
     }
 
     /**
-     * 특정 설문에 대한 최신 Plan 조회
-     * GET /api/plans/{surveyId}
+     * 특정 설문에 대한 최신 플랜 조회
+     * GET /api/plans/survey/{surveyId}
      */
-    @GetMapping("/{surveyId}")
-    public ResponseEntity<ApiResponse<PlanResponseDto>> getPlanBySurveyId(
+    @GetMapping("/survey/{surveyId}")
+    public ResponseEntity<ApiResponse<PlanResponseDto>> getLatestPlanBySurveyId(
             @PathVariable Long surveyId
     ) {
-        PlanResponseDto plan = planService.getLatestPlanBySurveyId(surveyId);
-        return ResponseEntity.ok(ApiResponse.success("OK", plan));
+        PlanResponseDto dto = planService.getLatestPlanBySurveyId(surveyId);
+        return ResponseEntity.ok(ApiResponse.success("OK", dto));
     }
 
-    // --- 내부 응답 DTO ---
+    // ---------- 내부 DTO들 ----------
 
     @Getter
-    public static class PlanCreateResponse {
+    public static class CreatePlanResponse {
         private final Long planId;
-        private final Long surveyId;
 
-        public PlanCreateResponse(Long planId, Long surveyId) {
+        public CreatePlanResponse(Long planId) {
             this.planId = planId;
-            this.surveyId = surveyId;
         }
     }
-
-    // --- 공통 ApiResponse (SurveyController와 구조 동일) ---
 
     @Getter
     public static class ApiResponse<T> {
