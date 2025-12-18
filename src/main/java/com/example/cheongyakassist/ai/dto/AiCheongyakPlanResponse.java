@@ -10,6 +10,7 @@ public class AiCheongyakPlanResponse {
     private TimeHorizonStrategy timeHorizonStrategy;
     private ChartData chartData;
     private PlanMeta planMeta;
+    private String report;
 
     @Data
     public static class Summary {
