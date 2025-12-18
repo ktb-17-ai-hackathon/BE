@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @Table(name = "housing_profile")
@@ -256,8 +257,9 @@ public class HousingProfile {
         p.preferredRegion = req.getPreferredRegion();
 
         // priorityCriteria : List<String> → "transport,school,price" 형태로 저장
-        if (req.getPriorityCriteria() != null && !req.getPriorityCriteria().isEmpty()) {
-            p.priorityCriteria = String.join(",", req.getPriorityCriteria());
+        List<String> priorities = req.getPriorityCriteria();
+        if (priorities != null && !priorities.isEmpty()) {
+            p.priorityCriteria = String.join(",", priorities);
         } else {
             p.priorityCriteria = null;
         }

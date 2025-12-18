@@ -1,61 +1,49 @@
 package com.example.cheongyakassist.plan.entity;
 
-import com.example.cheongyakassist.plan.model.ConfidenceLevel;
-import com.example.cheongyakassist.plan.model.PlanHorizon;
+import com.example.cheongyakassist.survey.entity.HousingProfile;
+import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "plan")
 @Getter
-@NoArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@AllArgsConstructor
+@Builder
 public class Plan {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // 어떤 설문(survey)에 대한 플랜인지 연결
-    @Column(name = "survey_id", nullable = false)
-    private Long surveyId;
+    // HousingProfile과 연관관계 (N:1)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "survey_id", nullable = false)
+    private HousingProfile survey;
 
-    // LLM이 준 JSON 전체 (문자열로 저장)
+    // 추천 보유 기간 (SHORT_3, MID_5, LONG_10)
+    @Column(name = "recommended_horizon", length = 20)
+    private String recommendedHorizon;
+
+    // 신뢰도 (LOW, MEDIUM, HIGH)
+    @Column(name = "confidence_level", length = 20)
+    private String confidenceLevel;
+
+    // LLM 원본 JSON - String으로 저장
     @Lob
-    @Column(name = "llm_result_json", nullable = false)
-    private String llmResultJson;
+    @Column(name = "llm_raw_result", columnDefinition = "CLOB")
+    private String llmRawResult;
 
-    // 선택: 추천 기간 (3/5/10년 등)
-    @Enumerated(EnumType.STRING)
-    @Column(name = "recommended_horizon")
-    private PlanHorizon recommendedHorizon;
-
-    // 선택: 신뢰도
-    @Enumerated(EnumType.STRING)
-    @Column(name = "confidence_level")
-    private ConfidenceLevel confidenceLevel;
-
-    @Column(name = "created_at", nullable = false)
+    @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     @PrePersist
     protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
-    }
-
-    public static Plan create(
-            Long surveyId,
-            String llmResultJson,
-            PlanHorizon recommendedHorizon,
-            ConfidenceLevel confidenceLevel
-    ) {
-        Plan plan = new Plan();
-        plan.surveyId = surveyId;
-        plan.llmResultJson = llmResultJson;
-        plan.recommendedHorizon = recommendedHorizon;
-        plan.confidenceLevel = confidenceLevel;
-        return plan;
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
     }
 }

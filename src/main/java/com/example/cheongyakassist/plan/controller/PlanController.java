@@ -21,11 +21,7 @@ public class PlanController {
         return "plan-ok";
     }
 
-
-    /**
-     * 플랜 생성
-     * POST /api/plans
-     */
+    // (기존) 프론트가 직접 LLM 결과까지 주는 경우
     @PostMapping
     public ResponseEntity<ApiResponse<CreatePlanResponse>> createPlan(
             @RequestBody PlanCreateRequest request
@@ -36,16 +32,32 @@ public class PlanController {
         );
     }
 
-    /**
-     * 특정 설문에 대한 최신 플랜 조회
-     * GET /api/plans/survey/{surveyId}
-     */
+    // (신규) 설문 ID만 보내면 백엔드가 AI 호출까지 해서 Plan 생성
+    @PostMapping("/survey/{surveyId}/ai")
+    public ResponseEntity<ApiResponse<CreatePlanResponse>> createPlanFromSurvey(
+            @PathVariable Long surveyId
+    ) {
+        Long planId = planService.createPlanFromSurvey(surveyId);
+        return ResponseEntity.ok(
+                ApiResponse.success("AI 설계 결과가 생성되었습니다.", new CreatePlanResponse(planId))
+        );
+    }
+
+    // 최신 Plan 조회
     @GetMapping("/survey/{surveyId}")
     public ResponseEntity<ApiResponse<PlanResponseDto>> getLatestPlanBySurveyId(
             @PathVariable Long surveyId
     ) {
         PlanResponseDto dto = planService.getLatestPlanBySurveyId(surveyId);
         return ResponseEntity.ok(ApiResponse.success("OK", dto));
+    }
+
+    @PostMapping("/ai/{surveyId}")
+    public ApiResponse<PlanResponseDto> createPlanWithAi(
+            @PathVariable Long surveyId
+    ) {
+        PlanResponseDto dto = planService.createPlanWithAi(surveyId);
+        return ApiResponse.success("플랜이 생성되었습니다.", dto);
     }
 
     // ---------- 내부 DTO들 ----------
